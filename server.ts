@@ -11,9 +11,7 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
   // Standard middlewares
-  app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
 
   // Initialize SQLite database and seed demo account if not present
   try {
