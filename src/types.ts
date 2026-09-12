@@ -40,6 +40,18 @@ export interface CharacterStats {
   stat_points_available: number;
 }
 
+export type ProofRequirementType = 'none' | 'before_after_photo' | 'single_photo' | 'note_only';
+
+export interface TaskProofVerification {
+  verified: boolean;
+  feedback: string;
+  confidence: number;
+  verified_at: string;
+  before_image_url?: string;
+  after_image_url?: string;
+  user_note?: string;
+}
+
 export interface Task {
   id: string;
   user_id: string;
@@ -55,6 +67,10 @@ export interface Task {
   due_date: string;
   created_at: string;
   updated_at: string;
+  requires_proof?: boolean;
+  proof_type?: ProofRequirementType;
+  proof_criteria?: string;
+  last_proof?: TaskProofVerification;
 }
 
 export interface TaskHistoryLog {
@@ -66,6 +82,11 @@ export interface TaskHistoryLog {
   xp_earned: number;
   gold_earned: number;
   completed_at: string;
+  proof_verified?: boolean;
+  proof_feedback?: string;
+  proof_type?: ProofRequirementType;
+  before_image_url?: string;
+  after_image_url?: string;
 }
 
 export interface InventoryItem {

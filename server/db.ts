@@ -107,6 +107,10 @@ function initSchema(db: Database): void {
       due_date TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
+      requires_proof INTEGER DEFAULT 0,
+      proof_type TEXT DEFAULT 'none',
+      proof_criteria TEXT,
+      last_proof TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -119,6 +123,11 @@ function initSchema(db: Database): void {
       xp_earned INTEGER NOT NULL,
       gold_earned INTEGER NOT NULL,
       completed_at TEXT NOT NULL,
+      proof_verified INTEGER DEFAULT 0,
+      proof_feedback TEXT,
+      proof_type TEXT,
+      before_image_url TEXT,
+      after_image_url TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -158,4 +167,34 @@ function initSchema(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_task_logs_user_id ON task_history_logs(user_id);
     CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id);
   `);
+
+  // Safe migrations for existing databases
+  const taskCols = [
+    { name: 'requires_proof', type: 'INTEGER DEFAULT 0' },
+    { name: 'proof_type', type: "TEXT DEFAULT 'none'" },
+    { name: 'proof_criteria', type: 'TEXT' },
+    { name: 'last_proof', type: 'TEXT' },
+  ];
+  for (const col of taskCols) {
+    try {
+      db.run(`ALTER TABLE tasks ADD COLUMN ${col.name} ${col.type};`);
+    } catch {
+      // column already exists
+    }
+  }
+
+  const logCols = [
+    { name: 'proof_verified', type: 'INTEGER DEFAULT 0' },
+    { name: 'proof_feedback', type: 'TEXT' },
+    { name: 'proof_type', type: 'TEXT' },
+    { name: 'before_image_url', type: 'TEXT' },
+    { name: 'after_image_url', type: 'TEXT' },
+  ];
+  for (const col of logCols) {
+    try {
+      db.run(`ALTER TABLE task_history_logs ADD COLUMN ${col.name} ${col.type};`);
+    } catch {
+      // column already exists
+    }
+  }
 }

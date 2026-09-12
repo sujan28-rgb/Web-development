@@ -1,6 +1,6 @@
 {
-  "name": "Chronocraft: Life RPG",
-  "description": "An immersive Life RPG converting daily productivity, habits, and tasks into an engaging virtual progression system with non-linear leveling, character stats, boss battles, shop economy, and real SQLite database persistence.",
+  "name": "LifeQuest",
+  "description": "A user-friendly task and habit tracker that turns your daily productivity into an RPG adventure with character levels, stat growth, friendly boss battles, and an item shop.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

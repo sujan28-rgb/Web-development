@@ -61,22 +61,22 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
 
   const handleBuy = async (item: ShopItem) => {
     if (character.gold < item.cost) {
-      soundEngine.playClick();
-      setMessage(`Not enough gold! You need ${item.cost - character.gold} more gold.`);
+      soundEngine.playLevelUp();
+      setMessage(`You need ${item.cost - character.gold} more coins! Complete tasks to earn more.`);
       setTimeout(() => setMessage(null), 3000);
       return;
     }
 
     setActionLoading(item.id);
-    soundEngine.playCoin();
+    soundEngine.playBuy();
     try {
-      const res = await api.buyItem(item.id);
-      setMessage(res.message);
+      const res = await api.buyShopItem(item.id);
       setInventory(res.inventory);
       await onRefreshCharacter();
+      setMessage(res.message);
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
-      setMessage(err.message || 'Transaction failed');
+      setMessage(err.message || 'Failed to purchase');
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setActionLoading(null);
@@ -110,7 +110,7 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
       setMessage(res.message);
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
-      setMessage(err.message || 'Consume error');
+      setMessage(err.message || 'Error using item');
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setActionLoading(null);
@@ -118,34 +118,34 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-100">
       {/* Bazaar Banner */}
-      <div className="bg-[#0f172a]/95 border border-amber-500/30 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-xs">
             <Coins className="w-6 h-6" />
           </div>
           <div>
             <h2
-              className="text-xl font-bold font-serif text-amber-100"
+              className="text-xl font-bold font-serif text-white"
               style={{ fontFamily: 'Cinzel, serif' }}
             >
-              The Arcane Bazaar & Hero Vault
+              Hero Shop & Inventory
             </h2>
             <p className="text-xs text-slate-400">
-              Exchange your task-earned gold for legendary armor, elixir buffs, and streak wards.
+              Spend coins earned from completing your tasks on weapons, armor, and helpful potions.
             </p>
           </div>
         </div>
 
         {/* Currency Pill */}
-        <div className="flex items-center gap-4 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold text-sm">
+        <div className="flex items-center gap-4 bg-slate-800 px-4 py-2 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-1.5 text-amber-400 font-mono font-bold text-sm">
             <Coins className="w-4 h-4 text-amber-400" />
-            <span>{character.gold} Gold</span>
+            <span>{character.gold} Coins</span>
           </div>
-          <div className="w-px h-4 bg-slate-800" />
-          <div className="flex items-center gap-1.5 text-purple-300 font-mono font-bold text-sm">
+          <div className="w-px h-4 bg-slate-700" />
+          <div className="flex items-center gap-1.5 text-purple-400 font-mono font-bold text-sm">
             <Sparkles className="w-4 h-4 text-purple-400" />
             <span>{character.gems} Gems</span>
           </div>
@@ -154,9 +154,9 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
 
       {/* Message notification banner */}
       {message && (
-        <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-mono animate-fadeIn flex items-center justify-between">
+        <div className="p-3 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-mono animate-fadeIn flex items-center justify-between font-semibold shadow-md">
           <span>{message}</span>
-          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-200">
+          <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-white">
             ✕
           </button>
         </div>
@@ -171,12 +171,12 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
           }}
           className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'catalog'
-              ? 'border-amber-500 text-amber-300 bg-amber-500/5'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/10 font-bold'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Artifact Catalog ({catalog.length})</span>
+          <span>Shop Items ({catalog.length})</span>
         </button>
         <button
           onClick={() => {
@@ -185,12 +185,12 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
           }}
           className={`px-6 py-3 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'vault'
-              ? 'border-amber-500 text-amber-300 bg-amber-500/5'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/10 font-bold'
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
           <Shield className="w-4 h-4" />
-          <span>My Equipped Vault ({inventory.length})</span>
+          <span>My Inventory ({inventory.length})</span>
         </button>
       </div>
 
@@ -206,56 +206,56 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
             return (
               <div
                 key={item.id}
-                className="p-4 rounded-2xl bg-[#0e1424] border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-all shadow-md"
+                className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-all shadow-md"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400 shrink-0">
                       <Icon className="w-5 h-5" />
                     </div>
                     <span
-                      className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
+                      className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border font-semibold ${
                         item.rarity === 'legendary'
-                          ? 'border-amber-500/50 text-amber-300 bg-amber-500/10'
+                          ? 'border-amber-500/40 text-amber-300 bg-amber-500/15'
                           : item.rarity === 'epic'
-                          ? 'border-purple-500/50 text-purple-300 bg-purple-500/10'
+                          ? 'border-purple-500/40 text-purple-300 bg-purple-500/15'
                           : item.rarity === 'rare'
-                          ? 'border-cyan-500/50 text-cyan-300 bg-cyan-500/10'
-                          : 'border-slate-700 text-slate-400 bg-slate-800/40'
+                          ? 'border-cyan-500/40 text-cyan-300 bg-cyan-500/15'
+                          : 'border-slate-700 text-slate-400 bg-slate-800'
                       }`}
                     >
                       {item.rarity}
                     </span>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-100">{item.name}</h3>
+                  <h3 className="text-sm font-bold text-white">{item.name}</h3>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">{item.description}</p>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-1 font-mono text-sm font-bold text-amber-300">
+                  <div className="flex items-center gap-1 font-mono text-sm font-bold text-amber-400">
                     <Coins className="w-4 h-4 text-amber-400" />
-                    <span>{item.cost} Gold</span>
+                    <span>{item.cost} Coins</span>
                   </div>
 
                   <button
                     onClick={() => handleBuy(item)}
                     disabled={alreadyOwned || actionLoading === item.id || !canAfford}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                    className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all ${
                       alreadyOwned
                         ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                         : canAfford
-                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-950/40'
-                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xs'
+                        : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                     }`}
                   >
                     {alreadyOwned
-                      ? 'Possessed'
+                      ? 'Owned'
                       : actionLoading === item.id
-                      ? 'Acquiring...'
+                      ? 'Buying...'
                       : canAfford
-                      ? 'Acquire'
-                      : 'Need Gold'}
+                      ? 'Buy'
+                      : 'Need Coins'}
                   </button>
                 </div>
               </div>
@@ -266,9 +266,9 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
         /* Inventory Vault */
         <div>
           {inventory.length === 0 ? (
-            <div className="text-center py-12 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-              <Shield className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">Your vault is empty. Visit the catalog to equip your hero!</p>
+            <div className="text-center py-12 rounded-2xl bg-slate-900 border border-dashed border-slate-800">
+              <Shield className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">Your inventory is empty. Browse the shop items above to get gear!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -281,8 +281,8 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
                     key={inv.id}
                     className={`p-4 rounded-2xl border transition-all ${
                       isEquipped
-                        ? 'bg-amber-950/20 border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
-                        : 'bg-[#0e1424] border-slate-800'
+                        ? 'bg-slate-900 border-amber-500/50 shadow-md ring-1 ring-amber-500/20'
+                        : 'bg-slate-900 border-slate-800 shadow-sm'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -295,17 +295,17 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
                         </span>
                       )}
                       {inv.type === 'consumable' && (
-                        <span className="text-xs font-mono font-bold text-amber-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                        <span className="text-xs font-mono font-bold text-amber-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
                           Qty: {inv.quantity}
                         </span>
                       )}
                     </div>
 
-                    <h4 className="text-sm font-bold text-slate-100">{inv.name}</h4>
+                    <h4 className="text-sm font-bold text-white">{inv.name}</h4>
                     <p className="text-xs text-slate-400 mt-1">{inv.description}</p>
 
                     <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-                      <span className="text-[10px] font-mono uppercase text-slate-400">
+                      <span className="text-[10px] font-mono uppercase text-slate-500 font-medium">
                         {inv.type}
                       </span>
 
@@ -313,9 +313,9 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
                         <button
                           onClick={() => handleUseConsumable(inv)}
                           disabled={actionLoading === inv.id}
-                          className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md"
+                          className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-colors"
                         >
-                          Use Consumable
+                          Use Item
                         </button>
                       ) : (
                         <button
@@ -324,10 +324,10 @@ export const ShopBazaar: React.FC<ShopBazaarProps> = ({ character, onRefreshChar
                           className={`px-3 py-1 rounded-xl font-bold text-xs transition-all ${
                             isEquipped
                               ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs'
                           }`}
                         >
-                          {isEquipped ? 'Unequip' : 'Equip Gear'}
+                          {isEquipped ? 'Unequip' : 'Equip'}
                         </button>
                       )}
                     </div>

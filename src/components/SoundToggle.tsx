@@ -19,9 +19,9 @@ export const SoundToggle: React.FC = () => {
       onClick={handleToggle}
       aria-label={muted ? 'Unmute Sound' : 'Mute Sound'}
       title={muted ? 'Unmute Sound FX' : 'Mute Sound FX'}
-      className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 hover:bg-slate-700/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+      className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/40"
     >
-      {muted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+      {muted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-amber-600" />}
     </button>
   );
 };

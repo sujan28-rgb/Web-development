@@ -9,6 +9,10 @@ import {
   CATALOG_SHOP_ITEMS,
   WORLD_BOSS_TEMPLATES,
 } from './rpgEngine.js';
+import {
+  suggestTaskProofRequirements,
+  verifyQuestProofWithAi,
+} from './gemini.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'chronocraft_super_secret_jwt_key_rpg_progression_2026';
@@ -147,6 +151,9 @@ export async function seedDemoHero(db: any): Promise<string> {
       completed: 0,
       streak_count: 7,
       due_date: todayDate,
+      requires_proof: 1,
+      proof_type: 'before_after_photo',
+      proof_criteria: 'Upload a photo of your full water bottle before drinking, and a photo of your empty bottle after finishing it!',
     },
     {
       id: 'task_demo_4',
@@ -160,6 +167,9 @@ export async function seedDemoHero(db: any): Promise<string> {
       completed: 0,
       streak_count: 4,
       due_date: todayDate,
+      requires_proof: 0,
+      proof_type: 'none',
+      proof_criteria: '',
     },
     {
       id: 'task_demo_5',
@@ -173,6 +183,9 @@ export async function seedDemoHero(db: any): Promise<string> {
       completed: 0,
       streak_count: 2,
       due_date: todayDate,
+      requires_proof: 1,
+      proof_type: 'before_after_photo',
+      proof_criteria: 'Upload a before photo of your workspace, and an after photo showing it tidy and organized!',
     },
     {
       id: 'task_demo_6',
@@ -186,13 +199,16 @@ export async function seedDemoHero(db: any): Promise<string> {
       completed: 0,
       streak_count: 1,
       due_date: todayDate,
+      requires_proof: 1,
+      proof_type: 'single_photo',
+      proof_criteria: 'Upload a photo showing the open book or summary notes you completed.',
     },
   ];
 
   for (const t of starterTasks) {
     db.run(
-      `INSERT INTO tasks (id, user_id, title, description, category, type, difficulty, xp_reward, gold_reward, completed, streak_count, due_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, user_id, title, description, category, type, difficulty, xp_reward, gold_reward, completed, streak_count, due_date, created_at, updated_at, requires_proof, proof_type, proof_criteria)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         t.id,
         demoUserId,
@@ -208,6 +224,9 @@ export async function seedDemoHero(db: any): Promise<string> {
         t.due_date,
         now,
         now,
+        (t as any).requires_proof || 0,
+        (t as any).proof_type || 'none',
+        (t as any).proof_criteria || '',
       ]
     );
   }
@@ -661,7 +680,24 @@ router.get('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
 
     sql += ' ORDER BY completed ASC, created_at DESC';
 
-    const tasks = queryAll(db, sql, params);
+    const rawTasks = queryAll(db, sql, params);
+    const tasks = rawTasks.map((t: any) => {
+      let last_proof = undefined;
+      if (t.last_proof) {
+        try {
+          last_proof = typeof t.last_proof === 'string' ? JSON.parse(t.last_proof) : t.last_proof;
+        } catch {
+          last_proof = undefined;
+        }
+      }
+      return {
+        ...t,
+        requires_proof: Boolean(t.requires_proof),
+        proof_type: t.proof_type || 'none',
+        proof_criteria: t.proof_criteria || '',
+        last_proof,
+      };
+    });
     res.json({ tasks });
   } catch (err: any) {
     console.error('Fetch tasks error:', err);
@@ -672,7 +708,17 @@ router.get('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
 // Create task
 router.post('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, category, type = 'daily', difficulty = 'medium', due_date } = req.body;
+    const {
+      title,
+      description,
+      category,
+      type = 'daily',
+      difficulty = 'medium',
+      due_date,
+      requires_proof = false,
+      proof_type = 'none',
+      proof_criteria = '',
+    } = req.body;
 
     if (!title || !title.trim()) {
       res.status(400).json({ error: 'Quest title is required' });
@@ -695,8 +741,8 @@ router.post('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
     const today = now.split('T')[0];
 
     db.run(
-      `INSERT INTO tasks (id, user_id, title, description, category, type, difficulty, xp_reward, gold_reward, completed, streak_count, due_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, user_id, title, description, category, type, difficulty, xp_reward, gold_reward, completed, streak_count, due_date, created_at, updated_at, requires_proof, proof_type, proof_criteria)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         taskId,
         req.userId,
@@ -712,11 +758,17 @@ router.post('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
         due_date || today,
         now,
         now,
+        requires_proof ? 1 : 0,
+        proof_type,
+        proof_criteria ? proof_criteria.trim() : '',
       ]
     );
 
     saveDb();
     const createdTask = queryOne(db, 'SELECT * FROM tasks WHERE id = ?', [taskId]);
+    if (createdTask) {
+      createdTask.requires_proof = Boolean(createdTask.requires_proof);
+    }
 
     res.status(201).json({
       message: 'Quest inscribed into your grimoire!',
@@ -732,7 +784,17 @@ router.post('/tasks', requireAuth, async (req: AuthRequest, res: Response) => {
 router.put('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, category, type, difficulty, due_date } = req.body;
+    const {
+      title,
+      description,
+      category,
+      type,
+      difficulty,
+      due_date,
+      requires_proof,
+      proof_type,
+      proof_criteria,
+    } = req.body;
 
     const db = await getDb();
     const existing = queryOne(db, 'SELECT * FROM tasks WHERE id = ? AND user_id = ?', [id, req.userId]);
@@ -746,6 +808,9 @@ router.put('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response) =>
     const updatedCat = category || existing.category;
     const updatedType = type || existing.type;
     const updatedDiff = difficulty || existing.difficulty;
+    const updatedReqProof = requires_proof !== undefined ? (requires_proof ? 1 : 0) : existing.requires_proof;
+    const updatedProofType = proof_type !== undefined ? proof_type : (existing.proof_type || 'none');
+    const updatedProofCrit = proof_criteria !== undefined ? proof_criteria.trim() : (existing.proof_criteria || '');
 
     // Recalculate rewards if difficulty changed
     const character = queryOne(db, 'SELECT streak_days FROM characters WHERE user_id = ?', [req.userId]);
@@ -753,7 +818,7 @@ router.put('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response) =>
     const now = new Date().toISOString();
 
     db.run(
-      `UPDATE tasks SET title = ?, description = ?, category = ?, type = ?, difficulty = ?, xp_reward = ?, gold_reward = ?, due_date = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE tasks SET title = ?, description = ?, category = ?, type = ?, difficulty = ?, xp_reward = ?, gold_reward = ?, due_date = ?, requires_proof = ?, proof_type = ?, proof_criteria = ?, updated_at = ? WHERE id = ?`,
       [
         updatedTitle,
         updatedDesc,
@@ -763,6 +828,9 @@ router.put('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response) =>
         xp,
         gold,
         due_date || existing.due_date,
+        updatedReqProof,
+        updatedProofType,
+        updatedProofCrit,
         now,
         id,
       ]
@@ -770,6 +838,14 @@ router.put('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response) =>
 
     saveDb();
     const updated = queryOne(db, 'SELECT * FROM tasks WHERE id = ?', [id]);
+    if (updated) {
+      updated.requires_proof = Boolean(updated.requires_proof);
+      if (updated.last_proof) {
+        try {
+          updated.last_proof = JSON.parse(updated.last_proof);
+        } catch {}
+      }
+    }
     res.json({ message: 'Quest updated', task: updated });
   } catch (err: any) {
     console.error('Update task error:', err);
@@ -803,6 +879,16 @@ router.delete('/tasks/:id', requireAuth, async (req: AuthRequest, res: Response)
 router.post('/tasks/:id/complete', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const {
+      proof_verified = false,
+      proof_feedback = '',
+      proof_type = '',
+      before_image_url = '',
+      after_image_url = '',
+      user_note = '',
+      confidence = 90,
+    } = req.body || {};
+
     const db = await getDb();
 
     const task = queryOne(db, 'SELECT * FROM tasks WHERE id = ? AND user_id = ?', [id, req.userId]);
@@ -920,18 +1006,46 @@ router.post('/tasks/:id/complete', requireAuth, async (req: AuthRequest, res: Re
     // Every completion also adds +1 directly to the related attribute!
     db.run(`UPDATE character_stats SET ${targetStat} = ${targetStat} + 1 WHERE character_id = ?`, [character.id]);
 
+    // Prepare proof object if provided
+    let lastProofJson: string | null = null;
+    if (proof_feedback || before_image_url || after_image_url || user_note) {
+      lastProofJson = JSON.stringify({
+        verified: Boolean(proof_verified),
+        feedback: proof_feedback || 'Quest proof successfully verified!',
+        confidence,
+        verified_at: now,
+        before_image_url,
+        after_image_url,
+        user_note,
+      });
+    }
+
     // Mark task completed and increment streak
     db.run(
-      `UPDATE tasks SET completed = 1, streak_count = streak_count + 1, updated_at = ? WHERE id = ?`,
-      [now, id]
+      `UPDATE tasks SET completed = 1, streak_count = streak_count + 1, last_proof = ?, updated_at = ? WHERE id = ?`,
+      [lastProofJson || task.last_proof, now, id]
     );
 
     // Write to audit log
     const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     db.run(
-      `INSERT INTO task_history_logs (id, user_id, task_id, task_title, category, xp_earned, gold_earned, completed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [logId, req.userId, task.id, task.title, task.category, earnedXp, earnedGold, now]
+      `INSERT INTO task_history_logs (id, user_id, task_id, task_title, category, xp_earned, gold_earned, completed_at, proof_verified, proof_feedback, proof_type, before_image_url, after_image_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        logId,
+        req.userId,
+        task.id,
+        task.title,
+        task.category,
+        earnedXp,
+        earnedGold,
+        now,
+        proof_verified ? 1 : 0,
+        proof_feedback || '',
+        proof_type || task.proof_type || 'none',
+        before_image_url || '',
+        after_image_url || '',
+      ]
     );
 
     // Deal damage to active world boss
@@ -1279,6 +1393,62 @@ router.get('/logs', requireAuth, async (req: AuthRequest, res: Response) => {
     res.json({ logs });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to load chronicles' });
+  }
+});
+
+// ----------------------------------------------------
+// AI QUEST & PROOF ENGINE (Powered by Gemini 3.8 Flash)
+// ----------------------------------------------------
+
+// Suggest proof requirements for a quest
+router.post('/ai/suggest-proof', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, category, description } = req.body;
+    if (!title || !title.trim()) {
+      res.status(400).json({ error: 'Quest title is required' });
+      return;
+    }
+
+    const suggestion = await suggestTaskProofRequirements(title.trim(), category, description);
+    res.json(suggestion);
+  } catch (err: any) {
+    console.error('AI suggest proof error:', err);
+    res.status(500).json({ error: 'Failed to generate AI proof suggestion' });
+  }
+});
+
+// Verify quest proof photos with multimodal AI
+router.post('/ai/verify-proof', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      taskTitle,
+      taskDescription,
+      proofCriteria,
+      proofType = 'single_photo',
+      beforeImageBase64,
+      afterImageBase64,
+      userNote,
+    } = req.body;
+
+    if (!taskTitle) {
+      res.status(400).json({ error: 'Task title is required for verification' });
+      return;
+    }
+
+    const result = await verifyQuestProofWithAi({
+      taskTitle,
+      taskDescription,
+      proofCriteria: proofCriteria || 'Show proof that the quest was completed',
+      proofType,
+      beforeImageBase64,
+      afterImageBase64,
+      userNote,
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    console.error('AI verify proof error:', err);
+    res.status(500).json({ error: 'Failed to verify quest proof' });
   }
 });
 
